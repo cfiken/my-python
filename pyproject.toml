@@ -21,7 +21,7 @@ packages = ["src/myapp"]
 
 [tool.ruff]
 target-version = "py313"
-line-length = 120
+line-length = 160
 src = ["src", "tests"]
 
 [tool.ruff.lint]
