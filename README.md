@@ -2,6 +2,20 @@
 
 <!-- プロジェクトの説明を記述 -->
 
+## テンプレートからのクイックスタート
+
+GitHub で "Use this template" でリポジトリを作成した後:
+
+```bash
+git clone https://github.com/<you>/<new-repo>.git
+cd <new-repo>
+
+# プロジェクト名を一括変更（Python パッケージ名: 小文字英字+数字+アンダースコア）
+./scripts/init-project.sh my_awesome_app
+```
+
+これにより `myapp` が指定した名前にリネームされ、すぐに開発を始められます。
+
 ## セットアップ
 
 ### 開発環境（Docker）
