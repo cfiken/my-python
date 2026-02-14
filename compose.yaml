@@ -1,0 +1,36 @@
+name: myapp-dev
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+    container_name: myapp-dev
+    volumes:
+      - .:/app
+      - ${HOME}/.gitconfig:/home/appuser/.gitconfig:ro
+      - ${HOME}/.ssh:/home/appuser/.ssh:ro
+      - ${HOME}/.config/gh:/home/appuser/.config/gh
+      - ${HOME}/.claude:/home/appuser/.claude
+      - vscode-server-data:/home/appuser/.vscode-server
+    environment:
+      - UV_CACHE_DIR=/app/.cache/uv
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Tokyo
+    env_file:
+      - path: .env
+        required: false
+    stdin_open: true
+    tty: true
+    networks:
+      - myapp-network
+
+networks:
+  myapp-network:
+    driver: bridge
+
+volumes:
+  vscode-server-data:

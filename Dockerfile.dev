@@ -1,0 +1,74 @@
+FROM python:3.13-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        gnupg \
+        git \
+        openssh-client \
+        build-essential \
+        pkg-config \
+        libffi-dev \
+        libssl-dev \
+        unzip \
+        jq \
+        less \
+        procps \
+        iputils-ping \
+        sudo \
+        zsh \
+        tmux \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node.js のインストール（Claude Code / Codex 用）
+RUN mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+        | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" \
+        > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g @anthropic-ai/claude-code @openai/codex
+
+# GitHub CLI のインストール
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends gh \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# uv のインストール
+RUN curl -fsSL https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
+
+# ホストの UID/GID を受け取る（デフォルトは 1000）
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+# ユーザーの作成（ホストと同じ UID/GID で作成）
+RUN if ! getent group ${USER_GID} >/dev/null; then \
+        groupadd -g ${USER_GID} appuser; \
+    fi \
+    && useradd -m -u ${USER_UID} -g ${USER_GID} -s /usr/bin/zsh appuser \
+    && echo "appuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/appuser \
+    && chmod 0440 /etc/sudoers.d/appuser \
+    && mkdir -p /app \
+    && chown -R ${USER_UID}:${USER_GID} /app
+
+ENV PATH="/usr/local/bin:${PATH}"
+
+WORKDIR /app
+
+USER appuser

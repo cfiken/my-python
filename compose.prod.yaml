@@ -1,0 +1,20 @@
+name: myapp-prod
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: myapp
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Tokyo
+    restart: unless-stopped
+    networks:
+      - myapp-network
+
+networks:
+  myapp-network:
+    driver: bridge
