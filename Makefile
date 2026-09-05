@@ -1,10 +1,12 @@
-.PHONY: help build up down restart logs ps exec shell stop clean prune
+.PHONY: help build up down restart logs ps exec shell stop clean prune _ensure-host-files
 .PHONY: prod-build prod-up prod-down prod-restart prod-logs prod-ps
 .PHONY: test lint typecheck format check install sync
 
 COMPOSE_FILE := compose.yaml
 COMPOSE_PROD_FILE := compose.prod.yaml
 SERVICE := app
+# ~/.claude.json の bind mount 先（compose.yaml と一致させる）
+CLAUDE_JSON_DIR := $(HOME)/.config/myapp-dev
 
 help:
 	@echo "Docker commands (dev):"
@@ -17,8 +19,8 @@ help:
 	@echo "  make exec       - run a command (CMD=...)"
 	@echo "  make shell      - open shell in dev container"
 	@echo "  make stop       - stop dev container"
-	@echo "  make clean      - remove containers and volumes"
-	@echo "  make prune      - remove images, networks, volumes"
+	@echo "  make clean      - remove containers and named volumes (claude/codex login is lost)"
+	@echo "  make prune      - remove containers, volumes, images"
 	@echo ""
 	@echo "Docker commands (production):"
 	@echo "  make prod-build   - build production image"
@@ -41,18 +43,36 @@ help:
 # Docker commands (dev)
 # ==========================================
 
-build:
+# bind mount 先（~/.claude.json 等）はホスト不在だと Docker が root 所有ディレクトリとして勝手に作るため、コンテナ作成前に用意する（冪等）。
+# 過去の make up で claude.json がディレクトリ化していたら、エラーで知らせて止まる。
+_ensure-host-files:
+	@mkdir -p "$(CLAUDE_JSON_DIR)"
+	@mkdir -p "$(HOME)/.claude/skills"
+	@mkdir -p "$(HOME)/.claude/commands"
+	@mkdir -p "$(HOME)/.agents/skills"
+	@if [ -d "$(CLAUDE_JSON_DIR)/claude.json" ]; then \
+		echo "ERROR: \"$(CLAUDE_JSON_DIR)/claude.json\" が誤ってディレクトリとして作られています。"; \
+		echo "       過去の make up が compose.yaml の bind mount でこれを作った可能性があります。"; \
+		echo "       一度 'rm -rf \"$(CLAUDE_JSON_DIR)/claude.json\"' で消してからやり直してください。"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(CLAUDE_JSON_DIR)/claude.json" ]; then \
+		install -m 600 /dev/null "$(CLAUDE_JSON_DIR)/claude.json" && \
+		echo '{}' > "$(CLAUDE_JSON_DIR)/claude.json"; \
+	fi
+
+build: _ensure-host-files
 	USER_UID=$$(id -u) USER_GID=$$(id -g) docker compose -f $(COMPOSE_FILE) build
 
-up:
-	docker compose -f $(COMPOSE_FILE) up -d
+up: _ensure-host-files
+	USER_UID=$$(id -u) USER_GID=$$(id -g) docker compose -f $(COMPOSE_FILE) up -d
 
 down:
 	docker compose -f $(COMPOSE_FILE) down
 
-restart:
+restart: _ensure-host-files
 	docker compose -f $(COMPOSE_FILE) down
-	docker compose -f $(COMPOSE_FILE) up -d
+	USER_UID=$$(id -u) USER_GID=$$(id -g) docker compose -f $(COMPOSE_FILE) up -d
 
 logs:
 	docker compose -f $(COMPOSE_FILE) logs -f --tail=200

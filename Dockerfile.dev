@@ -3,6 +3,9 @@ FROM python:3.13-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+# locale が POSIX のままだと tmux がマルチバイト文字を描画できないため UTF-8 を明示する
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -65,10 +68,26 @@ RUN if ! getent group ${USER_GID} >/dev/null; then \
     && echo "appuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/appuser \
     && chmod 0440 /etc/sudoers.d/appuser \
     && mkdir -p /app \
-    && chown -R ${USER_UID}:${USER_GID} /app
+    && chown -R ${USER_UID}:${USER_GID} /app \
+# named volume の初期所有権・権限の継承用に appuser 所有 700 のダミーを置く（無いと root:root で EACCES。既存 volume は make clean で作り直し）
+    && install -d -m 700 -o ${USER_UID} -g ${USER_GID} /home/appuser/.claude \
+    && touch /home/appuser/.claude/.keep \
+    && chown ${USER_UID}:${USER_GID} /home/appuser/.claude/.keep \
+    && install -d -m 700 -o ${USER_UID} -g ${USER_GID} /home/appuser/.codex \
+    && touch /home/appuser/.codex/.keep \
+    && chown ${USER_UID}:${USER_GID} /home/appuser/.codex/.keep
 
 ENV PATH="/usr/local/bin:${PATH}"
 
 WORKDIR /app
 
 USER appuser
+
+# docker exec は env に TERM が無いと TERM=xterm を注入し 256 色にならないため明示する。
+# COLORTERM は接続元端末の truecolor 対応の宣言（モダン端末からの利用前提）。
+ENV TERM=xterm-256color
+ENV COLORTERM=truecolor
+
+# ベースイメージの CMD は python3（REPL）。開発コンテナの常駐プロセスとしては
+# シェルのほうが意図が明確なので明示する（tty: true 前提。compose.yaml 参照）。
+CMD ["zsh"]

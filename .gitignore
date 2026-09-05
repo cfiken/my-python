@@ -42,6 +42,10 @@ Thumbs.db
 
 # Claude Code
 .claude/settings.local.json
+.claude/.local/
+
+# Codex（環境依存な生成物。絶対パスを含むためコミットしない）
+.codex/
 
 # Credentials
 credentials.json
