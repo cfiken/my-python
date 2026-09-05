@@ -95,6 +95,22 @@ RUN curl -fsSL https://claude.ai/install.sh | bash \
 ENV TERM=xterm-256color
 ENV COLORTERM=truecolor
 
+# agmsg Codex monitor mode: codex 起動を monitor bridge (shim) 経由にするシェル関数を常設する。
+# ~/.zshrc は writable layer でリビルドのたび消えるためイメージに焼き込む。
+# shim はプロジェクトの codex delivery mode が monitor のときだけ迂回し、それ以外は素通し。
+# shim 実体はホストからマウントする ~/.agents/skills/agmsg 内（未マウント時は通常の codex を呼ぶ）。
+RUN cat >> /home/appuser/.zshrc <<'ZSHRC'
+# agmsg Codex monitor beta: codex 起動を monitor bridge 経由にする。
+codex() {
+  local shim="$HOME/.agents/skills/agmsg/scripts/drivers/types/codex/codex-shim.sh"
+  if [ -x "$shim" ]; then
+    "$shim" "$@"
+  else
+    command codex "$@"
+  fi
+}
+ZSHRC
+
 # ベースイメージの CMD は python3（REPL）。開発コンテナの常駐プロセスとしては
 # シェルのほうが意図が明確なので明示する（tty: true 前提。compose.yaml 参照）。
 CMD ["zsh"]

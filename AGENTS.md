@@ -50,6 +50,8 @@ make format     # ruff format のみ
 - スキルとコマンドはホストの `~/.agents/skills`, `~/.claude/skills`, `~/.claude/commands` を 1:1 でマウントして共有する。
   リポジトリの `.claude/` に置くのはプロジェクト固有のものだけ
 - `~/.claude.json` はホストの `~/.config/myapp-dev/claude.json` に bind mount（`make up` が冪等に作成）
+- `codex` はシェル関数経由で agmsg の codex-shim を呼ぶ（`~/.zshrc` に焼き込み済み）。
+  プロジェクトの codex delivery mode が monitor のときだけ monitor bridge を経由し、それ以外は素通し
 
 ## プロジェクト構成
 

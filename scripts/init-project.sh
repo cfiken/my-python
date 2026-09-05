@@ -63,7 +63,6 @@ FILES_TO_REPLACE=(
   compose.prod.yaml
   Makefile
   README.md
-  # CLAUDE.md は AGENTS.md への symlink なので対象外（sed -i すると実体ファイル化してしまう）
   AGENTS.md
   DESIGN.md
   .env.example
