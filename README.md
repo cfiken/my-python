@@ -32,6 +32,10 @@ make shell
 uv sync --all-extras
 ```
 
+コンテナ内の Claude Code / Codex 設定は named volume に永続化され、ホストの
+`~/.agents/skills` / `~/.claude/skills` / `~/.claude/commands` がそのまま共有されます
+（詳細は [AGENTS.md](AGENTS.md)）。
+
 ### ローカル環境
 
 ```bash

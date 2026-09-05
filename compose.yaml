@@ -14,7 +14,19 @@ services:
       - ${HOME}/.gitconfig:/home/appuser/.gitconfig:ro
       - ${HOME}/.ssh:/home/appuser/.ssh:ro
       - ${HOME}/.config/gh:/home/appuser/.config/gh
-      - ${HOME}/.claude:/home/appuser/.claude
+      # Claude 設定はコンテナ専用ボリュームに隔離（ホストと共有するとプラグインの絶対パスが衝突するため）。
+      - claude-config:/home/appuser/.claude
+      # 自作スキルをホストと双方向共有（1:1）。実体は ~/.agents/skills、
+      # ~/.claude/skills はそこへの相対 symlink 前提（同じ相対位置でマウント）。
+      - ${HOME}/.claude/skills:/home/appuser/.claude/skills
+      - ${HOME}/.agents/skills:/home/appuser/.agents/skills
+      # Claude 専用コマンド（agmsg の Claude 用変種など）もホストと共有する
+      - ${HOME}/.claude/commands:/home/appuser/.claude/commands
+      # ~/.claude.json（テーマ/許可等）は ~/.claude/ とは別ファイルで writable layer に
+      # 置かれるため、ホストへ bind mount して down で消えないようにする。
+      - ${HOME}/.config/myapp-dev/claude.json:/home/appuser/.claude.json
+      # Codex も同様にコンテナ専用ボリュームへ。down で消えないよう永続化する。
+      - codex-config:/home/appuser/.codex
       - vscode-server-data:/home/appuser/.vscode-server
     environment:
       - UV_CACHE_DIR=/app/.cache/uv
@@ -34,3 +46,5 @@ networks:
 
 volumes:
   vscode-server-data:
+  claude-config:
+  codex-config:

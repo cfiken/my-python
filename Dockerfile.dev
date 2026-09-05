@@ -3,6 +3,9 @@ FROM python:3.13-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+# locale が POSIX のままだと tmux がマルチバイト文字を描画できないため UTF-8 を明示する
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -26,7 +29,7 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Node.js のインストール（Claude Code / Codex 用）
+# Node.js のインストール（Codex 用。Claude Code は native installer で入れる）
 RUN mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
         | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -37,7 +40,7 @@ RUN mkdir -p /etc/apt/keyrings \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @anthropic-ai/claude-code @openai/codex
+RUN npm install -g @openai/codex
 
 # GitHub CLI のインストール
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
@@ -65,10 +68,49 @@ RUN if ! getent group ${USER_GID} >/dev/null; then \
     && echo "appuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/appuser \
     && chmod 0440 /etc/sudoers.d/appuser \
     && mkdir -p /app \
-    && chown -R ${USER_UID}:${USER_GID} /app
+    && chown -R ${USER_UID}:${USER_GID} /app \
+# named volume の初期所有権・権限の継承用に appuser 所有 700 のダミーを置く（無いと root:root で EACCES。既存 volume は make clean で作り直し）
+    && install -d -m 700 -o ${USER_UID} -g ${USER_GID} /home/appuser/.claude \
+    && touch /home/appuser/.claude/.keep \
+    && chown ${USER_UID}:${USER_GID} /home/appuser/.claude/.keep \
+    && install -d -m 700 -o ${USER_UID} -g ${USER_GID} /home/appuser/.codex \
+    && touch /home/appuser/.codex/.keep \
+    && chown ${USER_UID}:${USER_GID} /home/appuser/.codex/.keep
 
-ENV PATH="/usr/local/bin:${PATH}"
+ENV PATH="/home/appuser/.local/bin:/usr/local/bin:${PATH}"
 
 WORKDIR /app
 
 USER appuser
+
+# Claude Code のインストール（公式推奨の native installer、npm 非依存）
+# 実体は ~/.local/bin と ~/.local/share/claude に置かれる（appuser の $HOME 必須なので
+# USER 切り替え後に実行）。~/.claude/downloads は bootstrap の一時 DL 先なので、
+# named volume の初期シードを汚さないよう削除する。
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && rm -rf /home/appuser/.claude/downloads
+
+# docker exec は env に TERM が無いと TERM=xterm を注入し 256 色にならないため明示する。
+# COLORTERM は接続元端末の truecolor 対応の宣言（モダン端末からの利用前提）。
+ENV TERM=xterm-256color
+ENV COLORTERM=truecolor
+
+# agmsg Codex monitor mode: codex 起動を monitor bridge (shim) 経由にするシェル関数を常設する。
+# ~/.zshrc は writable layer でリビルドのたび消えるためイメージに焼き込む。
+# shim はプロジェクトの codex delivery mode が monitor のときだけ迂回し、それ以外は素通し。
+# shim 実体はホストからマウントする ~/.agents/skills/agmsg 内（未マウント時は通常の codex を呼ぶ）。
+RUN cat >> /home/appuser/.zshrc <<'ZSHRC'
+# agmsg Codex monitor beta: codex 起動を monitor bridge 経由にする。
+codex() {
+  local shim="$HOME/.agents/skills/agmsg/scripts/drivers/types/codex/codex-shim.sh"
+  if [ -x "$shim" ]; then
+    "$shim" "$@"
+  else
+    command codex "$@"
+  fi
+}
+ZSHRC
+
+# ベースイメージの CMD は python3（REPL）。開発コンテナの常駐プロセスとしては
+# シェルのほうが意図が明確なので明示する（tty: true 前提。compose.yaml 参照）。
+CMD ["zsh"]

@@ -1,4 +1,7 @@
-# CLAUDE.md - 開発ガイド
+# AGENTS.md - 開発ガイド
+
+AI エージェント（Claude Code / Codex 等）向けの開発ガイドです。
+CLAUDE.md は本ファイルへのシンボリックリンクなので、編集は AGENTS.md に対して行ってください。
 
 ## プロジェクト概要
 
@@ -39,6 +42,16 @@ make test       # pytest 実行
 make typecheck  # ty check のみ
 make format     # ruff format のみ
 ```
+
+### コンテナ内の Claude Code / Codex
+
+- `~/.claude` / `~/.codex` はコンテナ専用の named volume（ホストと共有するとプラグインの絶対パスが衝突するため）。
+  `make down` では消えず、`make clean` / `make prune` で消える（ログイン情報も消える）
+- スキルとコマンドはホストの `~/.agents/skills`, `~/.claude/skills`, `~/.claude/commands` を 1:1 でマウントして共有する。
+  リポジトリの `.claude/` に置くのはプロジェクト固有のものだけ
+- `~/.claude.json` はホストの `~/.config/myapp-dev/claude.json` に bind mount（`make up` が冪等に作成）
+- `codex` はシェル関数経由で agmsg の codex-shim を呼ぶ（`~/.zshrc` に焼き込み済み）。
+  プロジェクトの codex delivery mode が monitor のときだけ monitor bridge を経由し、それ以外は素通し
 
 ## プロジェクト構成
 
@@ -81,7 +94,7 @@ Feat: [対象] - 機能追加
 |---------|------|--------------|
 | DESIGN.md | アーキテクチャ設計 | 設計変更時 |
 | TODO.md | 進捗管理 | 各フェーズ完了時 |
-| CLAUDE.md / AGENTS.md | エージェント指示 | プロセス変更時 |
+| AGENTS.md（CLAUDE.md は symlink） | エージェント指示 | プロセス変更時 |
 | docs/ | 詳細ドキュメント | 機能追加時 |
 
 ## テスト

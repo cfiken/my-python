@@ -61,8 +61,8 @@ FILES_TO_REPLACE=(
   Dockerfile
   compose.yaml
   compose.prod.yaml
+  Makefile
   README.md
-  CLAUDE.md
   AGENTS.md
   DESIGN.md
   .env.example
@@ -75,8 +75,8 @@ FILES_TO_REPLACE=(
 
 for file in "${FILES_TO_REPLACE[@]}"; do
   if [ -f "$file" ]; then
-    # compose ファイルはハイフン区切りの名前も置換
-    if [[ "$file" == compose* ]]; then
+    # compose ファイルと Makefile はハイフン区切りの名前（myapp-dev 等）も置換
+    if [[ "$file" == compose* || "$file" == Makefile ]]; then
       sed -i '' "s/${OLD_NAME}-/${NEW_NAME_HYPHEN}-/g" "$file"
       sed -i '' "s/container_name: ${OLD_NAME}/container_name: ${NEW_NAME_HYPHEN}/g" "$file"
     fi
